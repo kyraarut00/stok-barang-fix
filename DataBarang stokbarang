@@ -1,0 +1,182 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class DataBarang extends JFrame {
+    private JTextField kodeBarangField;
+    private JTextField namaBarangField;
+    private JTextField jumlahStokField;
+    private JTextField hargaSatuanField;
+    private JButton submitButton;
+    private JButton openTransaksiButton;  // Added button for opening TransaksiForm
+    private JTable dataTable;
+
+    private static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/stokbarangfix";
+    private static final String JDBC_USERNAME = "root";
+    private static final String JDBC_PASSWORD = "";
+
+    private DefaultTableModel tableModel;
+
+    public DataBarang() {
+        setTitle("Form Data Barang");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(800, 400);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(9, 2));  // Adjusted grid layout
+
+        JLabel kodeBarangLabel = new JLabel("Kode Barang:");
+        kodeBarangField = new JTextField();
+        JLabel namaBarangLabel = new JLabel("Nama Barang:");
+        namaBarangField = new JTextField();
+        JLabel jumlahStokLabel = new JLabel("Jumlah Stok:");
+        jumlahStokField = new JTextField();
+        JLabel hargaSatuanLabel = new JLabel("Harga Satuan:");
+        hargaSatuanField = new JTextField();
+
+        submitButton = new JButton("Submit");
+        openTransaksiButton = new JButton("Open Transaksi");  // Added button for opening TransaksiForm
+
+        // Create a table to display data
+        dataTable = new JTable();
+        JScrollPane scrollPane = new JScrollPane(dataTable);
+
+        panel.add(kodeBarangLabel);
+        panel.add(kodeBarangField);
+        panel.add(namaBarangLabel);
+        panel.add(namaBarangField);
+        panel.add(jumlahStokLabel);
+        panel.add(jumlahStokField);
+        panel.add(hargaSatuanLabel);
+        panel.add(hargaSatuanField);
+        panel.add(submitButton);
+        panel.add(openTransaksiButton);  // Added the "Open Transaksi" button
+
+        add(panel, BorderLayout.NORTH);
+        add(scrollPane, BorderLayout.CENTER);
+
+        // Initialize the table model
+        tableModel = new DefaultTableModel();
+        dataTable.setModel(tableModel);
+
+        // Set up column names for the table
+        tableModel.addColumn("Kode Barang");
+        tableModel.addColumn("Nama Barang");
+        tableModel.addColumn("Jumlah Stok");
+        tableModel.addColumn("Harga Satuan");
+
+        submitButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                insertData();
+                displayData();  // Refresh the table after insertion
+            }
+        });
+
+        openTransaksiButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openTransaksiForm();
+            }
+        });
+
+        // Display initial data in the table
+        displayData();
+    }
+
+    private void insertData() {
+        try {
+            Connection conn = getConnection();
+            String kodeBarang = kodeBarangField.getText();
+            String namaBarang = namaBarangField.getText();
+            int jumlahStok = Integer.parseInt(jumlahStokField.getText());
+            int hargaSatuan = Integer.parseInt(hargaSatuanField.getText());
+
+            PreparedStatement preparedStatement = conn.prepareStatement("INSERT INTO barang (KodeBarang, namaBarang, JumlahStok, HargaSatuan) VALUES (?, ?, ?, ?)");
+            preparedStatement.setString(1, kodeBarang);
+            preparedStatement.setString(2, namaBarang);
+            preparedStatement.setInt(3, jumlahStok);
+            preparedStatement.setInt(4, hargaSatuan);
+
+            preparedStatement.executeUpdate();
+
+            // Close resources
+            preparedStatement.close();
+            conn.close();
+
+            // Clear input fields after insertion
+            kodeBarangField.setText("");
+            namaBarangField.setText("");
+            jumlahStokField.setText("");
+            hargaSatuanField.setText("");
+
+            // Refresh the table after insertion
+            displayData();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Terjadi kesalahan saat memasukkan data ke database", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void displayData() {
+        try {
+            Connection conn = getConnection();
+            PreparedStatement preparedStatement = conn.prepareStatement("SELECT * FROM barang");
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            // Clear existing data in the table model
+            tableModel.setRowCount(0);
+
+            // Populate the table model with data
+            while (resultSet.next()) {
+                tableModel.addRow(new Object[]{
+                        resultSet.getString("KodeBarang"),
+                        resultSet.getString("namaBarang"),
+                        resultSet.getInt("JumlahStok"),
+                        resultSet.getInt("HargaSatuan")
+                });
+            }
+
+            // Close resources
+            resultSet.close();
+            preparedStatement.close();
+            conn.close();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Terjadi kesalahan saat menampilkan data dari database", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private static Connection getConnection() throws SQLException {
+        try {
+            Class.forName(JDBC_DRIVER);
+            return DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD);
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("Could not find JDBC driver: " + e.getMessage());
+        }
+    }
+
+    private void openTransaksiForm() {
+        // Create an instance of the TransaksiForm class
+        TransaksiForm transaksiForm = new TransaksiForm();
+        // Set it to be visible
+        transaksiForm.setVisible(true);
+        // Dispose of the current DataBarang frame if needed
+        dispose();
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            DataBarang form = new DataBarang();
+            form.setVisible(true);
+        });
+    }
+}
